@@ -1,0 +1,66 @@
+# 该makefile的作用是生成built-in.o 目标文件， 生成的规则是用当前目录的obj文件和 当面目录下面的生成的built-in.o 文件打包合在一起
+# 所以该makefile是递归调用的，只有该目录下没有子目录的时候才会直接生成built-in.o 否则会一直递归调用下去
+
+
+#一定要把 __build 目标放在第一个目标，这样make的时候才能作为第一个目标  （makefile的一个规则中，可以只有目标，依赖和命令都是可选的）
+__build:
+obj-y :=
+subdir_obj-y:=
+curdir_obj-y:=
+dep_files :=
+
+include makefile
+
+#PHONY 这里要使用 += ，因为上层makefile也有PHONY变量，如果使用:= 或者 = 会覆盖上层变量值
+PHONY += __build
+
+#函数引用，注意这里的函数引用经常出错误的地方可能是变量没有加$ 时候要多加注意
+curdir_obj-y:= $(filter %.o, $(obj-y))
+dep_files := $(foreach f, $(curdir_obj-y), .$(f).d)
+dep_files := $(wildcard $(dep_files))
+
+__subdir:= $(filter-out %.o, $(obj-y))
+subdir-y += $(patsubst %/, %, $(__subdir))
+subdir_obj-y:= $(patsubst %, %/built-in.o, $(subdir-y))
+
+#调试makefile过程中使用 echo 是很好的方式，可以确定当前变量的值是不是预期的
+echo:
+	@echo PHONY = $(PHONY)
+	@echo obj-y = $(obj-y)
+	@echo curdir_obj-y = $(curdir_obj-y)
+	@echo subdir-y = $(subdir-y)
+	@echo subdir_obj-y = $(subdir_obj-y)
+	@echo dep_files = $(dep_files)
+
+#非常重要，如果$(subdir-y)没有伪目标声明的话，__build: $(subdir-y) built-in.o 其中的$(subdir-y) 就不会被编译，也就说说 cam lcd mic 目标不会去生成
+#因为当前的工作目录下存在这三个文件夹，make.exe 会认为这些目标是存在的，所以不会再生成。
+PHONY += $(subdir-y)
+
+#这里首先要先生成子目录下面的built-in.o 文件，然后再生成当面目录的built-in.o 文件，因为当前目录的built-in.o 文件是要依赖子目录的
+#built-in.o 文件的										
+__build: $(subdir-y) built-in.o
+
+#这里是看自动生成的依赖文件是否存在，如果自动生成的依赖文件存在的话就包含进来；这里依赖文件的格式是.xx.o.d。 
+#假如 main.c 的 自动生成的依赖文件就是 .main.o.d。 内部的格式样子是 main.o : main.c ./include/cam.h ./include/mic.h 
+#内部只有目标和依赖，并没有生成目标的命令，生成目标的命令会在后面给出。 注意第一次编译的时候是没有自动生成的依赖文件的。
+ifneq ($(dep_files),)
+include $(dep_files)
+endif
+
+#生成子目录的built-in.o 文件
+$(subdir-y):
+	make -C $@ -f $(TOP_DIR)/makefile.build
+
+#生成当前目录的built-in.o 文件
+built-in.o: $(curdir_obj-y) $(subdir_obj-y)
+	$(LD) -r -o $@ $^
+
+#这里生成目标文件的同时，还生成了目标文件的依赖文件集合，这样下次make的时候，如果把自动生成的依赖文件include 进来的话，.c文件内部
+#引用的头文件发生变化的话也会再次生成目标文件。  如果不使用自动生成的依赖文件，如果头文件发生变化，其实目标文件并不会重新生成。因为
+#.o 的依赖关系中只有.c 
+%.o: %.c
+	$(CC) $(CFLAGS) -Wp,-MD,.$@.d -c -o $@ $<
+	
+
+
+.PHONY: $(PHONY)

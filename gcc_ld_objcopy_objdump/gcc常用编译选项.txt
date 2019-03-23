@@ -76,6 +76,29 @@ gcc -o hello_shared  hello.o
 gcc -static -o hello_static hello.o
 
 
+-l参数和-L参数
+-l参数就是用来指定程序要链接的库，-l参数紧接着就是库名，那么库名跟真正的库文
+件名有什么关系呢？
+就拿数学库来说，他的库名是m，他的库文件名是libm.so，很容易看出，把库文件名的
+头lib和尾.so去掉就是库名了。
+
+放在/lib和/usr/lib和/usr/local/lib里的库直接用-l参数就能链接了，但如果库文件
+没放在这三个目录里，而是放在其他目录里，这时我们需要使用-L参数指定动态链接库的位置
+
+只用-l参数的话，链接还是会出错，出错信息大概是：“/usr/bin/ld: cannot find 
+-lxxx”，也就是链接程序ld在那3个目录里找不到
+
+-I 作为头文件的寻找目录
+
+-D 用来指定全局的一个宏 例如编译多线程的程序时使用 -D _REENTRANT 来指定一些库使用可重入版本的
+例如：https://blog.csdn.net/xingzhi2014/article/details/17078985
+
+-lpthread 和 -pthread 的区别：https://www.cnblogs.com/suntp/p/6473751.html
+-lpthread 只是指定了链接的时候需要连接thread库， -pthread 是在 -lpthread 基础上编译的时候相当于再加了一个宏-D _REENTRANT
+编译的时候可以让一些库文件编译为线程安全函数
+
+-g
+产生符号调试工具（GNU的 gdb）所必要的符号信息。想要对源代码进行调试，就必须加入这个选项。
 
 
 
